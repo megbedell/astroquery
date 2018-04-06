@@ -30,7 +30,9 @@ class NasaExoplanetArchiveClass(object):
     """
     def __init__(self):
         self._param_units = None
-        self._table = None
+        self._exoplanet_table = None
+        self._koi_table = None
+        self._keplerstellar_table = None
 
     @property
     def param_units(self):
@@ -43,7 +45,7 @@ class NasaExoplanetArchiveClass(object):
         return self._param_units
 
     def get_table(self, url=None, cache=True, show_progress=True,
-                                    table_path=None):
+                                    table_path=None, ra_str=True):
         """
         Download (and optionally cache) a table from the `NExScI Exoplanet Archive 
                                     <http://exoplanetarchive.ipac.caltech.edu/index.html>`_.
@@ -60,6 +62,9 @@ class NasaExoplanetArchiveClass(object):
         table_path : str (optional)
             Path to a local table file. Default `None` will trigger a
             download of the table from the internet.
+        ra_str : bool (optional)
+            Internal flag indicating which table columns to use for
+            sky coordinates.
         Returns
         -------
         table : `~astropy.table.QTable`
@@ -72,8 +77,12 @@ class NasaExoplanetArchiveClass(object):
         table = ascii.read(table_path)
 
         # Create sky coordinate mixin column
-        table['sky_coord'] = SkyCoord(ra=table['ra_str'], dec=table['dec_str'],
+        if ra_str:
+            table['sky_coord'] = SkyCoord(ra=table['ra_str'], dec=table['dec_str'],
                                         unit=(u.hourangle, u.deg))
+        else:
+            table['sky_coord'] = SkyCoord(ra=table['ra'], dec=table['dec'],
+                                        unit=(u.deg, u.deg))        
 
         # Assign units to columns where possible
         for col in table.colnames:
@@ -110,19 +119,20 @@ class NasaExoplanetArchiveClass(object):
         table : `~astropy.table.QTable`
             Table of exoplanet properties.
         """
-        exoplanet_table = self.get_table(url=EXOPLANETS_CSV_URL, cache=cache, 
-                                        show_progress=show_progress, 
-                                        table_path=table_path)
+        if self._exoplanet_table is None:
+            exoplanet_table = self.get_table(url=EXOPLANETS_CSV_URL, cache=cache, 
+                                            show_progress=show_progress, 
+                                            table_path=table_path)
         
-        # Store column of lowercase names for indexing:
-        lowercase_names = [host_name.lower().replace(' ', '') + letter
-                           for host_name, letter in
-                           zip(exoplanet_table['pl_hostname'].data,
-                               exoplanet_table['pl_letter'].data)]
-        exoplanet_table['NAME_LOWERCASE'] = lowercase_names
-        exoplanet_table.add_index('NAME_LOWERCASE')
+            # Store column of lowercase names for indexing:
+            lowercase_names = [host_name.lower().replace(' ', '') + letter
+                               for host_name, letter in
+                               zip(exoplanet_table['pl_hostname'].data,
+                                   exoplanet_table['pl_letter'].data)]
+            exoplanet_table['NAME_LOWERCASE'] = lowercase_names
+            exoplanet_table.add_index('NAME_LOWERCASE')
         
-        self._exoplanet_table = exoplanet_table
+            self._exoplanet_table = exoplanet_table
         return self._exoplanet_table
         
     def get_kois_table(self, cache=True, show_progress=True,
@@ -150,11 +160,12 @@ class NasaExoplanetArchiveClass(object):
         table : `~astropy.table.QTable`
             Table of KOI properties.
         """
-        koi_table = self.get_table(url=KOIS_CSV_URL, cache=cache, 
-                                        show_progress=show_progress, 
-                                        table_path=table_path)
+        if self._koi_table is None:
+            koi_table = self.get_table(url=KOIS_CSV_URL, cache=cache, 
+                                            show_progress=show_progress, 
+                                            table_path=table_path)
         
-        self._koi_table = koi_table
+            self._koi_table = koi_table
         return self._koi_table
         
     def get_keplerstellar_table(self, cache=True, show_progress=True,
@@ -182,11 +193,12 @@ class NasaExoplanetArchiveClass(object):
         table : `~astropy.table.QTable`
             Table of Kepler stellar properties.
         """
-        keplerstellar_table = self.get_table(url=STELLAR_CSV_URL, cache=cache, 
-                                        show_progress=show_progress, 
-                                        table_path=table_path)
+        if self._keplerstellar_table is None:
+            keplerstellar_table = self.get_table(url=STELLAR_CSV_URL, cache=cache, 
+                                            show_progress=show_progress, 
+                                            table_path=table_path, ra_str=False)
         
-        self._keplerstellar_table = keplerstellar_table
+            self._keplerstellar_table = keplerstellar_table
         return self._keplerstellar_table
 
                                     
